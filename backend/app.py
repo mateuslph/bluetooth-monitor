@@ -29,25 +29,14 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=12)
 jwt = JWTManager(app)
 
 # =========================
-# DB CONFIG
+# DB CONNECTION (PROD READY)
 # =========================
-DB_HOST = os.getenv("dpg-d7n1c00k1i2s739dhtj0-a")
-DB_NAME = os.getenv("bluetooth_monitor")
-DB_USER = os.getenv("bluetooth_monitor_user")
-DB_PASSWORD = os.getenv("z1CNQbRSHx7S4q7GremNPB1TkYaxE2ea")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# =========================
-# DB CONNECTION (RETRY SAFE)
-# =========================
 def get_conn():
     for i in range(10):
         try:
-            return psycopg2.connect(
-                host=DB_HOST,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD
-            )
+            return psycopg2.connect(DATABASE_URL)
         except Exception as e:
             print(f"⏳ Tentando conectar ao banco... ({i+1}/10)")
             time.sleep(2)
@@ -55,7 +44,7 @@ def get_conn():
     raise Exception("❌ Não conseguiu conectar no banco")
 
 # =========================
-# INIT DB (SAFE)
+# INIT DB
 # =========================
 def init_db():
     try:
@@ -202,13 +191,10 @@ def logs():
     return jsonify(rows)
 
 # =========================
-# STARTUP SAFE (IMPORTANTE)
+# STARTUP (SAFE FOR RENDER)
 # =========================
 
-# roda apenas quando container sobe (funciona no Render)
 init_db()
 threading.Thread(target=generate_logs, daemon=True).start()
 
-# =========================
-# NÃO USAR app.run EM PRODUÇÃO
-# =========================
+# ⚠️ NÃO usar app.run() em produção (Gunicorn cuida disso)
