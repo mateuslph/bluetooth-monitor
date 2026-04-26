@@ -2,7 +2,7 @@ import os
 import time
 import random
 import threading
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -18,7 +18,7 @@ from psycopg2.errors import UniqueViolation
 import bcrypt
 
 # =========================
-# CONFIG
+# APP
 # =========================
 app = Flask(__name__)
 CORS(app)
@@ -31,16 +31,16 @@ jwt = JWTManager(app)
 # =========================
 # DB CONFIG
 # =========================
-DB_HOST = os.getenv("DB_HOST", "db")
-DB_NAME = os.getenv("DB_NAME", "bluetooth")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "123456")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 # =========================
-# DB CONNECTION (RETRY)
+# DB CONNECTION (RETRY SAFE)
 # =========================
 def get_conn():
-    for _ in range(10):
+    for i in range(10):
         try:
             return psycopg2.connect(
                 host=DB_HOST,
@@ -48,44 +48,49 @@ def get_conn():
                 user=DB_USER,
                 password=DB_PASSWORD
             )
-        except Exception:
-            print("Aguardando banco...")
+        except Exception as e:
+            print(f"⏳ Tentando conectar ao banco... ({i+1}/10)")
             time.sleep(2)
-    raise Exception("Não conectou ao banco")
+
+    raise Exception("Não conseguiu conectar no banco")
 
 # =========================
-# INIT DB
+# INIT DB (SAFE)
 # =========================
 def init_db():
-    conn = get_conn()
-    cur = conn.cursor()
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS logs (
-            id SERIAL PRIMARY KEY,
-            datetime TIMESTAMP,
-            level VARCHAR(10),
-            message TEXT
-        )
-    """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS logs (
+                id SERIAL PRIMARY KEY,
+                datetime TIMESTAMP,
+                level VARCHAR(10),
+                message TEXT
+            )
+        """)
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+        cur.close()
+        conn.close()
 
-init_db()
+        print("Banco inicializado")
+
+    except Exception as e:
+        print("Erro ao inicializar banco:", e)
 
 # =========================
-# AUTO LOG GENERATOR
+# AUTO LOG (SIMULAÇÃO)
 # =========================
 def generate_logs():
     while True:
@@ -108,10 +113,7 @@ def generate_logs():
         except Exception as e:
             print("Erro auto log:", e)
 
-        time.sleep(3)
-
-# inicia thread em background
-threading.Thread(target=generate_logs, daemon=True).start()
+        time.sleep(5)
 
 # =========================
 # ROUTES
@@ -199,12 +201,14 @@ def logs():
 
     return jsonify(rows)
 
-@app.route("/")
-def root():
-    return {"message": "API running"}
+# =========================
+# STARTUP SAFE (IMPORTANTE)
+# =========================
+
+# roda apenas quando container sobe (funciona no Render)
+init_db()
+threading.Thread(target=generate_logs, daemon=True).start()
 
 # =========================
-# RUN
+# NÃO USAR app.run EM PRODUÇÃO
 # =========================
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
