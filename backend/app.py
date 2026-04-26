@@ -52,7 +52,7 @@ def get_conn():
             print(f"⏳ Tentando conectar ao banco... ({i+1}/10)")
             time.sleep(2)
 
-    raise Exception("Não conseguiu conectar no banco")
+    raise Exception("❌ Não conseguiu conectar no banco")
 
 # =========================
 # INIT DB (SAFE)
@@ -84,10 +84,10 @@ def init_db():
         cur.close()
         conn.close()
 
-        print("Banco inicializado")
+        print("✅ Banco inicializado")
 
     except Exception as e:
-        print("Erro ao inicializar banco:", e)
+        print("❌ Erro ao inicializar banco:", e)
 
 # =========================
 # AUTO LOG (SIMULAÇÃO)
