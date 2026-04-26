@@ -2,6 +2,7 @@ services:
 
   db:
     image: postgres:15
+    container_name: bt_db
     restart: always
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -13,8 +14,12 @@ services:
       - bt_net
     profiles: ["dev", "prod"]
 
+  # =========================
+  # BACKEND PRODUÇÃO
+  # =========================
   backend:
-    build: ./backend
+    image: ghcr.io/MATEUSLPH/bluetooth-monitor/backend:${APP_VERSION}
+    container_name: bt_backend
     restart: always
     depends_on:
       - db
@@ -28,10 +33,38 @@ services:
       - "${BACKEND_PORT}:5000"
     networks:
       - bt_net
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
 
+  # =========================
+  # BACKEND DEV (HOT RELOAD)
+  # =========================
+  backend-dev:
+    build: ./backend
+    container_name: bt_backend_dev
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      FLASK_ENV: development
+    volumes:
+      - ./backend:/app
+    ports:
+      - "${BACKEND_PORT}:5000"
+    networks:
+      - bt_net
+    profiles: ["dev"]
+
+  # =========================
+  # FRONTEND PRODUÇÃO
+  # =========================
   frontend:
-    build: ./frontend
+    image: ghcr.io/SEU_USUARIO/bluetooth-monitor/frontend:${APP_VERSION}
+    container_name: bt_frontend
     restart: always
     depends_on:
       - backend
@@ -39,7 +72,24 @@ services:
       - "${FRONTEND_PORT}:3000"
     networks:
       - bt_net
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
+
+  # =========================
+  # FRONTEND DEV (HOT RELOAD)
+  # =========================
+  frontend-dev:
+    build: ./frontend
+    container_name: bt_frontend_dev
+    restart: always
+    depends_on:
+      - backend-dev
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    networks:
+      - bt_net
+    profiles: ["dev"]
 
 volumes:
   db_data:
