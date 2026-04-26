@@ -6,11 +6,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_jwt_extended import (
-    JWTManager,
-    create_access_token,
-    jwt_required
-)
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 
 import psycopg2
 import psycopg2.extras
@@ -29,15 +25,21 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=12)
 jwt = JWTManager(app)
 
 # =========================
-# DB CONNECTION (PROD READY)
+# DB CONFIG
 # =========================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise Exception("❌ DATABASE_URL não definida no ambiente")
+
+# =========================
+# DB CONNECTION
+# =========================
 def get_conn():
     for i in range(10):
         try:
             return psycopg2.connect(DATABASE_URL)
-        except Exception as e:
+        except Exception:
             print(f"⏳ Tentando conectar ao banco... ({i+1}/10)")
             time.sleep(2)
 
@@ -47,39 +49,35 @@ def get_conn():
 # INIT DB
 # =========================
 def init_db():
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
+    conn = get_conn()
+    cur = conn.cursor()
 
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS logs (
-                id SERIAL PRIMARY KEY,
-                datetime TIMESTAMP,
-                level VARCHAR(10),
-                message TEXT
-            )
-        """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS logs (
+            id SERIAL PRIMARY KEY,
+            datetime TIMESTAMP,
+            level VARCHAR(10),
+            message TEXT
+        )
+    """)
 
-        conn.commit()
-        cur.close()
-        conn.close()
+    conn.commit()
+    cur.close()
+    conn.close()
 
-        print("✅ Banco inicializado")
-
-    except Exception as e:
-        print("❌ Erro ao inicializar banco:", e)
+    print("✅ Banco inicializado")
 
 # =========================
-# AUTO LOG (SIMULAÇÃO)
+# AUTO LOG
 # =========================
 def generate_logs():
     while True:
@@ -107,7 +105,6 @@ def generate_logs():
 # =========================
 # ROUTES
 # =========================
-
 @app.route("/health")
 def health():
     return {"status": "ok"}, 200
@@ -117,7 +114,6 @@ def register():
     conn = None
     try:
         data = request.get_json()
-
         username = data.get("username")
         password = data.get("password")
 
@@ -154,13 +150,10 @@ def register():
 def login():
     data = request.get_json()
 
-    username = data.get("username")
-    password = data.get("password")
-
     conn = get_conn()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+    cur.execute("SELECT * FROM users WHERE username=%s", (data.get("username"),))
     user = cur.fetchone()
 
     cur.close()
@@ -169,11 +162,10 @@ def login():
     if not user:
         return {"msg": "user not found"}, 404
 
-    if not bcrypt.checkpw(password.encode(), user["password"].encode()):
+    if not bcrypt.checkpw(data.get("password").encode(), user["password"].encode()):
         return {"msg": "invalid password"}, 401
 
-    token = create_access_token(identity=username)
-
+    token = create_access_token(identity=user["username"])
     return {"token": token}
 
 @app.route("/logs", methods=["GET"])
@@ -191,10 +183,11 @@ def logs():
     return jsonify(rows)
 
 # =========================
-# STARTUP (SAFE FOR RENDER)
+# STARTUP CONTROLADO
 # =========================
+def start_background_tasks():
+    init_db()
+    threading.Thread(target=generate_logs, daemon=True).start()
 
-init_db()
-threading.Thread(target=generate_logs, daemon=True).start()
-
-# ⚠️ NÃO usar app.run() em produção (Gunicorn cuida disso)
+# roda apenas uma vez por processo
+start_background_tasks()
