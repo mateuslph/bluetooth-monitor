@@ -31,10 +31,10 @@ jwt = JWTManager(app)
 # =========================
 # DB CONFIG
 # =========================
-DB_HOST = os.getenv("DB_HOST")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("dpg-d7n1c00k1i2s739dhtj0-a")
+DB_NAME = os.getenv("bluetooth_monitor")
+DB_USER = os.getenv("bluetooth_monitor_user")
+DB_PASSWORD = os.getenv("z1CNQbRSHx7S4q7GremNPB1TkYaxE2ea")
 
 # =========================
 # DB CONNECTION (RETRY SAFE)
