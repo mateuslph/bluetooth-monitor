@@ -1,14 +1,21 @@
 {
   "name": "dashboard",
   "version": "1.0.0",
-  "dependencies": {
-    "axios": "^1.6.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "react-chartjs-2": "^5.2.0",
-    "chart.js": "^4.4.0"
-  },
+  "private": true,
   "scripts": {
-    "start": "react-scripts start"
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^3.8.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.4.0"
   }
 }
